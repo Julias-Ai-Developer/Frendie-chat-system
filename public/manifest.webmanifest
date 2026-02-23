@@ -1,6 +1,7 @@
 {
   "name": "Frendie Chat",
   "short_name": "Frendie",
+  "id": "/frendie-chat",
   "description": "Direct messaging with calls, media sharing, and real-time chat.",
   "start_url": "/",
   "scope": "/",
