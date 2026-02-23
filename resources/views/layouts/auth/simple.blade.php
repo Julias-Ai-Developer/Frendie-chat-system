@@ -9,7 +9,7 @@
 
             <div class="relative w-full max-w-5xl overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl">
                 <div class="grid lg:grid-cols-[1fr_1.1fr]">
-                    <div class="hidden flex-col justify-between bg-gradient-to-br from-teal-600 to-teal-500 p-10 text-white lg:flex">
+                    <div class="hidden flex-col bg-gradient-to-br from-teal-600 to-teal-500 p-10 text-white lg:flex">
                         <div class="space-y-4">
                             <div class="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-medium uppercase tracking-wide">
                                 <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
@@ -21,7 +21,15 @@
                             </p>
                         </div>
 
-                        <ul class="space-y-3 text-sm text-teal-50">
+                        <div class="mt-8 flex flex-1 items-center justify-center">
+                            <img
+                                src="{{ asset('images/frendie-chat.png') }}"
+                                alt="Frendie chat illustration"
+                                class="w-full max-w-sm object-contain drop-shadow-2xl"
+                            />
+                        </div>
+
+                        <ul class="mt-6 space-y-3 text-sm text-teal-50">
                             <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white"></span>Real-time messaging</li>
                             <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white"></span>Simple account access</li>
                             <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white"></span>Fast team collaboration</li>
@@ -30,8 +38,8 @@
 
                     <div class="p-6 sm:p-8 lg:p-10">
                         <a href="{{ route('home') }}" class="inline-flex items-center gap-3 font-medium text-gray-700 transition hover:text-teal-700" wire:navigate>
-                            <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-600 text-white shadow-sm">
-                                <x-app-logo-icon class="size-5 fill-current" />
+                            <span class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-teal-100 bg-white shadow-sm">
+                                <x-app-logo-icon class="h-9 w-9 object-cover" />
                             </span>
                             <span class="text-sm tracking-tight">Frendie</span>
                         </a>

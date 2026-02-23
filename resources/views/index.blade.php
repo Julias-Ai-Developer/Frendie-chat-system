@@ -364,6 +364,8 @@
             let postMaxBytes = 0;
             let appAttachmentMaxBytes = 0;
             let deferredInstallPrompt = null;
+            const pwaDismissKey = 'frendie_pwa_dismissed_at';
+            const pwaDismissTtlMs = 24 * 60 * 60 * 1000;
 
             let profileData = {
                 name: @json($userName),
@@ -442,7 +444,7 @@
             }
 
             function showInstallBanner(options) {
-                if (!isLikelyMobile() || isStandaloneMode()) {
+                if (isStandaloneMode()) {
                     return;
                 }
 
@@ -454,8 +456,30 @@
                 pwaInstallBanner.classList.remove('hidden');
             }
 
+            function isInstallPromptDismissed() {
+                const raw = window.localStorage.getItem(pwaDismissKey);
+                if (!raw) {
+                    // Remove old permanent-dismiss flag so install can show again.
+                    window.localStorage.removeItem('frendie_pwa_dismissed');
+                    return false;
+                }
+
+                const dismissedAt = Number(raw);
+                if (!Number.isFinite(dismissedAt)) {
+                    window.localStorage.removeItem(pwaDismissKey);
+                    return false;
+                }
+
+                return (Date.now() - dismissedAt) < pwaDismissTtlMs;
+            }
+
+            function dismissInstallPromptTemporarily() {
+                window.localStorage.setItem(pwaDismissKey, String(Date.now()));
+                window.localStorage.removeItem('frendie_pwa_dismissed');
+            }
+
             function registerPwa() {
-                const dismissed = window.localStorage.getItem('frendie_pwa_dismissed') === '1';
+                const dismissed = isInstallPromptDismissed();
 
                 if (dismissed || isStandaloneMode()) {
                     return;
@@ -468,13 +492,17 @@
                     });
                 }
 
-                if (!('serviceWorker' in window.navigator) || !canUseRealtimeMedia()) {
+                if (!canUseRealtimeMedia()) {
+                    showInstallBanner({
+                        showInstallButton: false,
+                        subText: 'Install needs HTTPS. Open this app with HTTPS (or localhost) to get the install prompt.',
+                    });
                     return;
                 }
 
-                window.navigator.serviceWorker.register('/sw.js').catch(function () {
-                    // Silent fail: app remains fully usable without offline install support.
-                });
+                if (!('serviceWorker' in window.navigator)) {
+                    return;
+                }
 
                 window.addEventListener('beforeinstallprompt', function (event) {
                     event.preventDefault();
@@ -487,8 +515,35 @@
 
                 window.addEventListener('appinstalled', function () {
                     deferredInstallPrompt = null;
+                    window.localStorage.removeItem(pwaDismissKey);
+                    window.localStorage.removeItem('frendie_pwa_dismissed');
                     hideInstallBanner();
                 });
+
+                window.navigator.serviceWorker.register('/sw.js').catch(function () {
+                    // Silent fail: app remains fully usable without offline install support.
+                });
+
+                window.setTimeout(function () {
+                    if (deferredInstallPrompt || isStandaloneMode()) {
+                        return;
+                    }
+
+                    if (isIosSafari()) {
+                        showInstallBanner({
+                            showInstallButton: false,
+                            subText: 'On iPhone: tap Share, then "Add to Home Screen".',
+                        });
+                        return;
+                    }
+
+                    showInstallBanner({
+                        showInstallButton: false,
+                        subText: isLikelyMobile()
+                            ? 'If popup is not shown, open browser menu and tap "Add to Home screen".'
+                            : 'If popup is not shown, use the install icon in the address bar or browser menu.',
+                    });
+                }, 6000);
             }
 
             function getInitials(name) {
@@ -1381,12 +1436,12 @@
             });
 
             pwaDismissButton.addEventListener('click', function () {
-                window.localStorage.setItem('frendie_pwa_dismissed', '1');
+                dismissInstallPromptTemporarily();
                 hideInstallBanner();
             });
 
             pwaLaterButton.addEventListener('click', function () {
-                window.localStorage.setItem('frendie_pwa_dismissed', '1');
+                dismissInstallPromptTemporarily();
                 hideInstallBanner();
             });
 
@@ -1402,6 +1457,8 @@
 
                 if (result.outcome === 'accepted') {
                     hideInstallBanner();
+                } else {
+                    dismissInstallPromptTemporarily();
                 }
 
                 deferredInstallPrompt = null;
