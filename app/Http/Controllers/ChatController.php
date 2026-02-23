@@ -94,6 +94,11 @@ class ChatController extends Controller
 
         return response()->json([
             'users' => $users,
+            'limits' => [
+                'upload_max_bytes' => $this->iniSizeToBytes((string) ini_get('upload_max_filesize')),
+                'post_max_bytes' => $this->iniSizeToBytes((string) ini_get('post_max_size')),
+                'app_attachment_max_bytes' => 102400 * 1024,
+            ],
         ]);
     }
 
@@ -176,7 +181,7 @@ class ChatController extends Controller
             'recipient_id' => ['required', 'integer', 'exists:users,id'],
             'body' => ['nullable', 'string', 'max:2000'],
             'view_once' => ['nullable', 'boolean'],
-            'attachment' => ['nullable', 'file', 'max:25600'],
+            'attachment' => ['nullable', 'file', 'max:102400'],
         ]);
 
         $authId = (int) $request->user()->id;
@@ -204,19 +209,11 @@ class ChatController extends Controller
         $attachmentSize = null;
 
         if ($attachment) {
-            $attachmentMime = (string) $attachment->getMimeType();
+            $attachmentMime = (string) ($attachment->getMimeType() ?: '');
             $attachmentName = $attachment->getClientOriginalName();
             $attachmentSize = (int) $attachment->getSize();
-
-            if (str_starts_with($attachmentMime, 'audio/')) {
-                $messageType = 'audio';
-            } elseif (str_starts_with($attachmentMime, 'video/')) {
-                $messageType = 'video';
-            } elseif (str_starts_with($attachmentMime, 'image/')) {
-                $messageType = 'image';
-            } else {
-                $messageType = 'file';
-            }
+            $attachmentMime = $this->normalizeAttachmentMime($attachmentMime, $attachmentName);
+            $messageType = $this->detectMessageType($attachmentMime, $attachmentName);
 
             $attachmentPath = $attachment->store('chat-attachments');
         }
@@ -310,11 +307,17 @@ class ChatController extends Controller
             abort(404);
         }
 
+        $contentType = $this->normalizeAttachmentMime(
+            (string) ($message->attachment_mime ?? ''),
+            (string) ($message->attachment_name ?? '')
+        );
+
         return Storage::response(
             $message->attachment_path,
             $message->attachment_name ?? basename($message->attachment_path),
             [
-                'Content-Type' => $message->attachment_mime ?: 'application/octet-stream',
+                'Content-Type' => $contentType ?: 'application/octet-stream',
+                'Cache-Control' => 'private, max-age=0, no-store',
             ]
         );
     }
@@ -475,5 +478,88 @@ class ChatController extends Controller
     private function typingKey(int $senderId, int $recipientId): string
     {
         return 'chat:typing:'.$senderId.':'.$recipientId;
+    }
+
+    /**
+     * Determine message type based on MIME and file name.
+     */
+    private function detectMessageType(string $mime, string $fileName): string
+    {
+        if (str_starts_with($mime, 'audio/')) {
+            return 'audio';
+        }
+
+        if (str_starts_with($mime, 'video/')) {
+            return 'video';
+        }
+
+        if (str_starts_with($mime, 'image/')) {
+            return 'image';
+        }
+
+        $extension = Str::lower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm' => 'audio',
+            'mp4', 'mov', 'mkv', 'avi', 'webm' => 'video',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg' => 'image',
+            default => 'file',
+        };
+    }
+
+    /**
+     * Normalize generic MIME values using file extension.
+     */
+    private function normalizeAttachmentMime(string $mime, string $fileName): string
+    {
+        $cleanMime = Str::lower(trim($mime));
+
+        if ($cleanMime !== '' && $cleanMime !== 'application/octet-stream') {
+            return $cleanMime;
+        }
+
+        $extension = Str::lower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'ogg' => 'audio/ogg',
+            'm4a' => 'audio/mp4',
+            'aac' => 'audio/aac',
+            'mp4' => 'video/mp4',
+            'mov' => 'video/quicktime',
+            'mkv' => 'video/x-matroska',
+            'avi' => 'video/x-msvideo',
+            'webm' => 'video/webm',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'bmp' => 'image/bmp',
+            'svg' => 'image/svg+xml',
+            default => $cleanMime,
+        };
+    }
+
+    /**
+     * Convert PHP ini size values like 2M / 1G to bytes.
+     */
+    private function iniSizeToBytes(string $value): int
+    {
+        $normalized = trim($value);
+
+        if ($normalized === '') {
+            return 0;
+        }
+
+        $unit = Str::lower(substr($normalized, -1));
+        $number = (float) $normalized;
+
+        return match ($unit) {
+            'g' => (int) round($number * 1024 * 1024 * 1024),
+            'm' => (int) round($number * 1024 * 1024),
+            'k' => (int) round($number * 1024),
+            default => (int) round((float) $normalized),
+        };
     }
 }

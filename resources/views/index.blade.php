@@ -10,6 +10,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#0f766e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Frendie">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/pwa-192.png">
     <title>Frendie Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -167,6 +174,24 @@
         </div>
     </div>
 
+    <div id="pwaInstallBanner" class="fixed inset-x-3 bottom-3 z-[85] hidden rounded-2xl border border-teal-200 bg-white p-3 shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[360px]">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-slate-800">Install Frendie Chat</p>
+                <p id="pwaInstallSubtext" class="mt-1 text-xs text-slate-600">Add this app to your home screen for faster chat access.</p>
+            </div>
+            <button id="pwaDismissButton" type="button" class="rounded-full px-2 py-1 text-slate-500 hover:bg-slate-100" aria-label="Dismiss install prompt">&times;</button>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+            <button id="pwaLaterButton" type="button" class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                Later
+            </button>
+            <button id="pwaInstallButton" type="button" class="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
+                Install
+            </button>
+        </div>
+    </div>
+
     <div id="profileDrawerBackdrop" class="fixed inset-0 z-40 hidden bg-black/30"></div>
     <aside id="profileDrawer" class="fixed right-0 top-0 z-50 flex h-full w-full max-w-md translate-x-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-200">
         <div class="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-teal-700 to-teal-500 px-5 py-4 text-white">
@@ -218,15 +243,21 @@
                 <p id="callTitle" class="truncate text-sm font-semibold">Call</p>
                 <p id="callHint" class="text-xs text-slate-300">In-app call</p>
             </div>
-            <button id="closeCallButton" type="button" class="rounded-full border border-slate-500 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700">
-                End call
-            </button>
+            <div class="flex items-center gap-2">
+                <a id="openExternalCallButton" href="#" target="_blank" rel="noopener" class="rounded-full border border-slate-500 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700">
+                    Open in browser
+                </a>
+                <button id="closeCallButton" type="button" class="rounded-full border border-slate-500 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700">
+                    End call
+                </button>
+            </div>
         </div>
         <iframe
             id="callFrame"
             title="Frendie in-app call"
             class="h-[calc(100%-56px)] w-full bg-black"
             allow="camera; microphone; autoplay; fullscreen; display-capture"
+            allowfullscreen
             referrerpolicy="no-referrer"
         ></iframe>
     </div>
@@ -301,7 +332,13 @@
             const callFrame = document.getElementById('callFrame');
             const callTitle = document.getElementById('callTitle');
             const callHint = document.getElementById('callHint');
+            const openExternalCallButton = document.getElementById('openExternalCallButton');
             const closeCallButton = document.getElementById('closeCallButton');
+            const pwaInstallBanner = document.getElementById('pwaInstallBanner');
+            const pwaInstallSubtext = document.getElementById('pwaInstallSubtext');
+            const pwaInstallButton = document.getElementById('pwaInstallButton');
+            const pwaDismissButton = document.getElementById('pwaDismissButton');
+            const pwaLaterButton = document.getElementById('pwaLaterButton');
 
             const horseSound = new Audio('https://actions.google.com/sounds/v1/animals/horse.ogg');
             horseSound.preload = 'auto';
@@ -322,6 +359,11 @@
             let typingSent = false;
             let initialized = false;
             let activeCall = null;
+            let callLoadTimer = null;
+            let uploadMaxBytes = 0;
+            let postMaxBytes = 0;
+            let appAttachmentMaxBytes = 0;
+            let deferredInstallPrompt = null;
 
             let profileData = {
                 name: @json($userName),
@@ -361,6 +403,92 @@
                 }
                 const rounded = size >= 10 || i === 0 ? Math.round(size) : Math.round(size * 10) / 10;
                 return `${rounded} ${units[i]}`;
+            }
+
+            function effectiveAttachmentLimitBytes() {
+                return Math.min(
+                    appAttachmentMaxBytes > 0 ? appAttachmentMaxBytes : Number.MAX_SAFE_INTEGER,
+                    uploadMaxBytes > 0 ? uploadMaxBytes : Number.MAX_SAFE_INTEGER,
+                    postMaxBytes > 0 ? postMaxBytes : Number.MAX_SAFE_INTEGER
+                );
+            }
+
+            function canUseRealtimeMedia() {
+                if (window.isSecureContext) {
+                    return true;
+                }
+
+                const host = window.location.hostname;
+                return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+            }
+
+            function isStandaloneMode() {
+                return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            }
+
+            function isLikelyMobile() {
+                return /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
+            }
+
+            function isIosSafari() {
+                const ua = window.navigator.userAgent.toLowerCase();
+                const isiOS = /iphone|ipad|ipod/.test(ua);
+                const isSafari = ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios') && !ua.includes('edgios');
+                return isiOS && isSafari;
+            }
+
+            function hideInstallBanner() {
+                pwaInstallBanner.classList.add('hidden');
+            }
+
+            function showInstallBanner(options) {
+                if (!isLikelyMobile() || isStandaloneMode()) {
+                    return;
+                }
+
+                const showInstallButton = Boolean(options && options.showInstallButton);
+                const subText = options && options.subText ? options.subText : 'Add this app to your home screen for faster chat access.';
+
+                pwaInstallSubtext.textContent = subText;
+                pwaInstallButton.classList.toggle('hidden', !showInstallButton);
+                pwaInstallBanner.classList.remove('hidden');
+            }
+
+            function registerPwa() {
+                const dismissed = window.localStorage.getItem('frendie_pwa_dismissed') === '1';
+
+                if (dismissed || isStandaloneMode()) {
+                    return;
+                }
+
+                if (isIosSafari()) {
+                    showInstallBanner({
+                        showInstallButton: false,
+                        subText: 'On iPhone: tap Share, then "Add to Home Screen".',
+                    });
+                }
+
+                if (!('serviceWorker' in window.navigator) || !canUseRealtimeMedia()) {
+                    return;
+                }
+
+                window.navigator.serviceWorker.register('/sw.js').catch(function () {
+                    // Silent fail: app remains fully usable without offline install support.
+                });
+
+                window.addEventListener('beforeinstallprompt', function (event) {
+                    event.preventDefault();
+                    deferredInstallPrompt = event;
+                    showInstallBanner({
+                        showInstallButton: true,
+                        subText: 'Install Frendie Chat for quick access and app-like experience.',
+                    });
+                });
+
+                window.addEventListener('appinstalled', function () {
+                    deferredInstallPrompt = null;
+                    hideInstallBanner();
+                });
             }
 
             function getInitials(name) {
@@ -519,7 +647,10 @@
                 attachVideoButton.disabled = !enabled;
                 toggleViewOnceButton.disabled = !enabled;
                 messageInput.placeholder = enabled ? 'Type your message...' : 'Select a user first...';
-                chatStatus.textContent = enabled ? '' : 'Open a conversation to send messages.';
+                const uploadLimitText = formatBytes(effectiveAttachmentLimitBytes());
+                chatStatus.textContent = enabled
+                    ? (uploadLimitText ? `Upload limit: ${uploadLimitText}` : '')
+                    : 'Open a conversation to send messages.';
                 if (!enabled) {
                     pendingAttachment = null;
                     attachmentInput.value = '';
@@ -641,6 +772,18 @@
                 const data = await response.json().catch(function () { return {}; });
 
                 if (!response.ok) {
+                    if (response.status === 413) {
+                        const configuredLimit = formatBytes(Math.min(
+                            uploadMaxBytes || Number.MAX_SAFE_INTEGER,
+                            postMaxBytes || Number.MAX_SAFE_INTEGER,
+                            appAttachmentMaxBytes || Number.MAX_SAFE_INTEGER
+                        ));
+
+                        throw new Error(configuredLimit
+                            ? `File is too large. Current upload limit is about ${configuredLimit}.`
+                            : 'File is too large for the current PHP upload limit.');
+                    }
+
                     if (data.errors && typeof data.errors === 'object') {
                         const firstKey = Object.keys(data.errors)[0];
                         if (firstKey && Array.isArray(data.errors[firstKey]) && data.errors[firstKey].length > 0) {
@@ -658,6 +801,12 @@
                 const data = await requestJson(endpoints.users, { headers: { Accept: 'application/json' } });
                 const incomingUsers = data.users || [];
                 const nextUnread = new Map();
+
+                if (data.limits && typeof data.limits === 'object') {
+                    uploadMaxBytes = Number(data.limits.upload_max_bytes || 0);
+                    postMaxBytes = Number(data.limits.post_max_bytes || 0);
+                    appAttachmentMaxBytes = Number(data.limits.app_attachment_max_bytes || 0);
+                }
 
                 incomingUsers.forEach(function (user) {
                     nextUnread.set(user.id, Number(user.unread_count || 0));
@@ -832,6 +981,11 @@
             function openInAppCall(callUrl, mode, partnerName) {
                 if (!callUrl) return;
 
+                if (!canUseRealtimeMedia()) {
+                    chatStatus.textContent = 'Audio/video call needs HTTPS (or localhost). Open the app with HTTPS.';
+                    return;
+                }
+
                 const modeLabel = mode === 'audio' ? 'Audio call' : 'Video call';
                 const userLabel = partnerName || (selectedUser ? selectedUser.name : 'contact');
 
@@ -846,14 +1000,31 @@
                     partner: userLabel,
                 };
 
+                openExternalCallButton.href = callUrl;
+                openExternalCallButton.classList.remove('hidden');
+
+                if (callLoadTimer) {
+                    clearTimeout(callLoadTimer);
+                    callLoadTimer = null;
+                }
+
                 callFrame.src = callUrl;
                 callBackdrop.classList.remove('hidden');
                 callModal.classList.remove('hidden');
+
+                callLoadTimer = window.setTimeout(function () {
+                    callHint.textContent = 'If camera/mic is blocked in-app, tap "Open in browser".';
+                }, 7000);
             }
 
             function closeInAppCall() {
                 if (activeCall === null && callModal.classList.contains('hidden')) {
                     return;
+                }
+
+                if (callLoadTimer) {
+                    clearTimeout(callLoadTimer);
+                    callLoadTimer = null;
                 }
 
                 activeCall = null;
@@ -864,6 +1035,11 @@
 
             async function startCall(mode) {
                 if (!selectedUserId) return;
+
+                if (!canUseRealtimeMedia()) {
+                    chatStatus.textContent = 'Audio/video call needs HTTPS (or localhost). Open this app with HTTPS.';
+                    return;
+                }
 
                 try {
                     const data = await requestJson(endpoints.callStart, {
@@ -1082,7 +1258,7 @@
                 toggleComposeMenu(false);
                 pendingAttachmentKind = 'audio';
                 attachmentInput.accept = 'audio/*';
-                attachmentInput.setAttribute('capture', 'microphone');
+                attachmentInput.removeAttribute('capture');
                 attachmentInput.click();
             });
 
@@ -1090,7 +1266,7 @@
                 toggleComposeMenu(false);
                 pendingAttachmentKind = 'video';
                 attachmentInput.accept = 'video/*';
-                attachmentInput.setAttribute('capture', 'user');
+                attachmentInput.removeAttribute('capture');
                 attachmentInput.click();
             });
 
@@ -1098,6 +1274,19 @@
                 pendingAttachment = attachmentInput.files && attachmentInput.files.length > 0
                     ? attachmentInput.files[0]
                     : null;
+
+                if (pendingAttachment) {
+                    const hardLimit = effectiveAttachmentLimitBytes();
+
+                    if (pendingAttachment.size > hardLimit) {
+                        chatStatus.textContent = `Selected file is too large. Limit is about ${formatBytes(hardLimit)}.`;
+                        pendingAttachment = null;
+                        attachmentInput.value = '';
+                    } else {
+                        chatStatus.textContent = '';
+                    }
+                }
+
                 renderAttachmentPreview();
                 queueTypingPulse();
             });
@@ -1171,6 +1360,52 @@
             viewOnceBackdrop.addEventListener('click', closeViewOnceModal);
             closeCallButton.addEventListener('click', closeInAppCall);
             callBackdrop.addEventListener('click', closeInAppCall);
+            callFrame.addEventListener('load', function () {
+                if (callLoadTimer) {
+                    clearTimeout(callLoadTimer);
+                    callLoadTimer = null;
+                }
+
+                callHint.textContent = activeCall && activeCall.mode === 'audio'
+                    ? 'Mic-only mode. You can still enable video in meeting controls.'
+                    : 'Connected inside the app.';
+            });
+
+            callFrame.addEventListener('error', function () {
+                if (callLoadTimer) {
+                    clearTimeout(callLoadTimer);
+                    callLoadTimer = null;
+                }
+
+                callHint.textContent = 'Could not load in-app call. Tap "Open in browser".';
+            });
+
+            pwaDismissButton.addEventListener('click', function () {
+                window.localStorage.setItem('frendie_pwa_dismissed', '1');
+                hideInstallBanner();
+            });
+
+            pwaLaterButton.addEventListener('click', function () {
+                window.localStorage.setItem('frendie_pwa_dismissed', '1');
+                hideInstallBanner();
+            });
+
+            pwaInstallButton.addEventListener('click', async function () {
+                if (!deferredInstallPrompt) {
+                    return;
+                }
+
+                deferredInstallPrompt.prompt();
+                const result = await deferredInstallPrompt.userChoice.catch(function () {
+                    return { outcome: 'dismissed' };
+                });
+
+                if (result.outcome === 'accepted') {
+                    hideInstallBanner();
+                }
+
+                deferredInstallPrompt = null;
+            });
 
             document.addEventListener('click', function (event) {
                 if (!accountMenu.contains(event.target) && !accountMenuButton.contains(event.target)) {
@@ -1205,6 +1440,7 @@
                 setProfileUi(profileData);
                 clearProfileFeedback();
                 renderViewOnceState();
+                registerPwa();
 
                 try {
                     await loadUsers({ preserveSelection: false });
