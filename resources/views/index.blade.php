@@ -93,15 +93,7 @@
                             <div id="activeChatAvatar" class="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">C</div>
                             <div class="min-w-0">
                                 <h1 id="activeChatName" class="truncate text-base font-semibold text-slate-900 sm:text-lg">Select a user</h1>
-                                <div class="flex items-center gap-2">
-                                    <p id="activeChatMeta" class="truncate text-xs text-slate-500">Choose a contact to start chatting.</p>
-                                    <div id="typingStars" class="typing-stars hidden" aria-live="polite">
-                                        <span class="typing-text">typing</span>
-                                        <span class="star s1">&#10022;</span>
-                                        <span class="star s2">&#10022;</span>
-                                        <span class="star s3">&#10022;</span>
-                                    </div>
-                                </div>
+                                <p id="activeChatMeta" class="truncate text-xs text-slate-500">Choose a contact to start chatting.</p>
                             </div>
                         </div>
 
@@ -131,20 +123,44 @@
 
                 <footer class="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
                     <div id="attachmentPreview" class="mb-2 hidden rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2"></div>
+                    <div id="typingStars" class="typing-stars mb-1 hidden pl-2" aria-live="polite">
+                        <span class="typing-text">typing</span>
+                        <span class="star s1">&#10022;</span>
+                        <span class="star s2">&#10022;</span>
+                        <span class="star s3">&#10022;</span>
+                    </div>
                     <div class="flex items-center gap-2">
-                        <button id="attachFileButton" type="button" class="h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" disabled>File</button>
-                        <button id="attachAudioButton" type="button" class="h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" disabled>Audio</button>
-                        <button id="attachVideoButton" type="button" class="h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" disabled>Video</button>
-                        <input id="messageInput" type="text" placeholder="Select a user first..." class="h-11 w-full rounded-full border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 focus:border-teal-300 focus:bg-white focus:outline-none" disabled>
-                        <button id="sendButton" type="button" class="h-11 rounded-full bg-teal-500 px-5 text-sm font-semibold text-white transition hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-slate-300" disabled>Send</button>
+                            <div class="relative flex-1">
+                            <div class="flex h-12 items-center rounded-full border border-slate-200 bg-slate-50 px-2">
+                                <button id="composeMenuButton" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold text-slate-600 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400" aria-label="Open compose menu" disabled>+</button>
+                                <div class="mx-2 h-5 w-px bg-slate-300"></div>
+                                <button id="emojiButton" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full text-base text-slate-600 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400" aria-label="Open emoji picker" disabled>&#9786;</button>
+                                <input id="messageInput" type="text" placeholder="Select a user first..." class="h-full w-full bg-transparent px-2 text-sm text-slate-700 focus:outline-none" disabled>
+                            </div>
+
+                            <div id="composeMenu" class="absolute bottom-14 left-0 z-20 hidden w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                                <button id="attachFileButton" type="button" class="mb-1 w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400" disabled>Attach file</button>
+                                <button id="attachAudioButton" type="button" class="mb-1 w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400" disabled>Attach audio</button>
+                                <button id="attachVideoButton" type="button" class="mb-1 w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400" disabled>Attach video</button>
+                                <button id="toggleViewOnceButton" type="button" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400" disabled>
+                                    View once: <span id="viewOnceMenuState">Off</span>
+                                </button>
+                            </div>
+
+                            <div id="emojiPanel" class="absolute bottom-14 left-12 z-20 hidden max-w-[220px] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                                <button type="button" data-emoji="&#128512;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128512;</button>
+                                <button type="button" data-emoji="&#128514;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128514;</button>
+                                <button type="button" data-emoji="&#128525;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128525;</button>
+                                <button type="button" data-emoji="&#128077;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128077;</button>
+                                <button type="button" data-emoji="&#128293;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128293;</button>
+                                <button type="button" data-emoji="&#128591;" class="rounded-lg px-2 py-1 text-lg hover:bg-slate-100">&#128591;</button>
+                            </div>
+                        </div>
+
+                        <button id="sendButton" type="button" class="h-12 rounded-full bg-teal-500 px-5 text-sm font-semibold text-white transition hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-slate-300" disabled>Send</button>
                     </div>
-                    <div class="mt-2 flex items-center justify-between gap-2">
-                        <label class="inline-flex items-center gap-2 text-xs text-slate-600">
-                            <input id="viewOnceToggle" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" disabled>
-                            View once
-                        </label>
-                        <p id="chatStatus" class="text-right text-xs text-slate-500"></p>
-                    </div>
+                    <input id="viewOnceToggle" type="checkbox" class="hidden" disabled>
+                    <p id="chatStatus" class="mt-2 text-right text-xs text-slate-500"></p>
                     <input id="attachmentInput" type="file" class="hidden">
                 </footer>
             </main>
@@ -248,6 +264,12 @@
             const attachFileButton = document.getElementById('attachFileButton');
             const attachAudioButton = document.getElementById('attachAudioButton');
             const attachVideoButton = document.getElementById('attachVideoButton');
+            const composeMenuButton = document.getElementById('composeMenuButton');
+            const composeMenu = document.getElementById('composeMenu');
+            const emojiButton = document.getElementById('emojiButton');
+            const emojiPanel = document.getElementById('emojiPanel');
+            const toggleViewOnceButton = document.getElementById('toggleViewOnceButton');
+            const viewOnceMenuState = document.getElementById('viewOnceMenuState');
             const attachmentInput = document.getElementById('attachmentInput');
             const attachmentPreview = document.getElementById('attachmentPreview');
             const viewOnceToggle = document.getElementById('viewOnceToggle');
@@ -382,6 +404,35 @@
                 profileDrawerBackdrop.classList.add('hidden');
             }
 
+            function toggleComposeMenu(forceOpen) {
+                const shouldOpen = typeof forceOpen === 'boolean'
+                    ? forceOpen
+                    : composeMenu.classList.contains('hidden');
+
+                composeMenu.classList.toggle('hidden', !shouldOpen);
+                if (shouldOpen) {
+                    emojiPanel.classList.add('hidden');
+                }
+            }
+
+            function toggleEmojiPanel(forceOpen) {
+                const shouldOpen = typeof forceOpen === 'boolean'
+                    ? forceOpen
+                    : emojiPanel.classList.contains('hidden');
+
+                emojiPanel.classList.toggle('hidden', !shouldOpen);
+                if (shouldOpen) {
+                    composeMenu.classList.add('hidden');
+                }
+            }
+
+            function renderViewOnceState() {
+                const enabled = viewOnceToggle.checked;
+                viewOnceMenuState.textContent = enabled ? 'On' : 'Off';
+                toggleViewOnceButton.classList.toggle('border-teal-300', enabled);
+                toggleViewOnceButton.classList.toggle('bg-teal-50', enabled);
+            }
+
             function setProfileUi(user) {
                 const initials = (user.initials || getInitials(user.name)).slice(0, 2).toUpperCase();
                 profileData = { name: user.name, email: user.email, initials: initials };
@@ -461,16 +512,22 @@
                 messageInput.disabled = !enabled;
                 sendButton.disabled = !enabled;
                 viewOnceToggle.disabled = !enabled;
+                composeMenuButton.disabled = !enabled;
+                emojiButton.disabled = !enabled;
                 attachFileButton.disabled = !enabled;
                 attachAudioButton.disabled = !enabled;
                 attachVideoButton.disabled = !enabled;
+                toggleViewOnceButton.disabled = !enabled;
                 messageInput.placeholder = enabled ? 'Type your message...' : 'Select a user first...';
                 chatStatus.textContent = enabled ? '' : 'Open a conversation to send messages.';
                 if (!enabled) {
                     pendingAttachment = null;
                     attachmentInput.value = '';
                     viewOnceToggle.checked = false;
+                    toggleComposeMenu(false);
+                    toggleEmojiPanel(false);
                 }
+                renderViewOnceState();
                 renderAttachmentPreview();
             }
 
@@ -759,6 +816,7 @@
                     pendingAttachment = null;
                     attachmentInput.value = '';
                     viewOnceToggle.checked = false;
+                    renderViewOnceState();
                     renderAttachmentPreview();
                     renderMessages(true);
                     await sendTypingStatus(false);
@@ -977,6 +1035,33 @@
                 closeUsersSidebar();
             });
 
+            composeMenuButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (composeMenuButton.disabled) return;
+                toggleComposeMenu();
+            });
+
+            emojiButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (emojiButton.disabled) return;
+                toggleEmojiPanel();
+            });
+
+            emojiPanel.addEventListener('click', function (event) {
+                const emojiButtonEl = event.target.closest('[data-emoji]');
+                if (!emojiButtonEl || messageInput.disabled) return;
+                const emoji = emojiButtonEl.getAttribute('data-emoji') || '';
+                messageInput.value += emoji;
+                messageInput.focus();
+                queueTypingPulse();
+            });
+
+            toggleViewOnceButton.addEventListener('click', function () {
+                if (toggleViewOnceButton.disabled) return;
+                viewOnceToggle.checked = !viewOnceToggle.checked;
+                renderViewOnceState();
+            });
+
             sendButton.addEventListener('click', sendMessage);
             messageInput.addEventListener('keypress', function (event) {
                 if (event.key === 'Enter') {
@@ -986,6 +1071,7 @@
             });
             messageInput.addEventListener('input', queueTypingPulse);
             attachFileButton.addEventListener('click', function () {
+                toggleComposeMenu(false);
                 pendingAttachmentKind = 'file';
                 attachmentInput.accept = '*/*';
                 attachmentInput.removeAttribute('capture');
@@ -993,6 +1079,7 @@
             });
 
             attachAudioButton.addEventListener('click', function () {
+                toggleComposeMenu(false);
                 pendingAttachmentKind = 'audio';
                 attachmentInput.accept = 'audio/*';
                 attachmentInput.setAttribute('capture', 'microphone');
@@ -1000,6 +1087,7 @@
             });
 
             attachVideoButton.addEventListener('click', function () {
+                toggleComposeMenu(false);
                 pendingAttachmentKind = 'video';
                 attachmentInput.accept = 'video/*';
                 attachmentInput.setAttribute('capture', 'user');
@@ -1088,12 +1176,22 @@
                 if (!accountMenu.contains(event.target) && !accountMenuButton.contains(event.target)) {
                     toggleAccountMenu(false);
                 }
+
+                if (!composeMenu.contains(event.target) && !composeMenuButton.contains(event.target)) {
+                    toggleComposeMenu(false);
+                }
+
+                if (!emojiPanel.contains(event.target) && !emojiButton.contains(event.target)) {
+                    toggleEmojiPanel(false);
+                }
             });
 
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
                     closeProfileDrawer();
                     toggleAccountMenu(false);
+                    toggleComposeMenu(false);
+                    toggleEmojiPanel(false);
                     if (!viewOnceModal.classList.contains('hidden')) {
                         closeViewOnceModal();
                     }
@@ -1106,6 +1204,7 @@
             (async function init() {
                 setProfileUi(profileData);
                 clearProfileFeedback();
+                renderViewOnceState();
 
                 try {
                     await loadUsers({ preserveSelection: false });
