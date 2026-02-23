@@ -1,0 +1,27 @@
+#!/usr/bin/env php
+<?php
+
+use Illuminate\Foundation\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+
+define('LARAVEL_START', microtime(true));
+
+// Register the Composer autoloader...
+require __DIR__.'/vendor/autoload.php';
+
+// Normalize Windows env var casing for Symfony Process passthrough used by `artisan serve`.
+if (DIRECTORY_SEPARATOR === '\\' && ! isset($_ENV['SYSTEMROOT'])) {
+    $systemRoot = $_ENV['SystemRoot'] ?? getenv('SystemRoot');
+
+    if (is_string($systemRoot) && $systemRoot !== '') {
+        $_ENV['SYSTEMROOT'] = $systemRoot;
+    }
+}
+
+// Bootstrap Laravel and handle the command...
+/** @var Application $app */
+$app = require_once __DIR__.'/bootstrap/app.php';
+
+$status = $app->handleCommand(new ArgvInput);
+
+exit($status);
